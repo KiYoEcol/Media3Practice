@@ -1,0 +1,89 @@
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+/build
+/captures
+.cxx
+
+# User-specific files
+.idea/
+
+# Android Studio generated files
+build/
+captures/
+output/
+.gen/
+generated/
+dependency-reduced-pom.xml
+
+# Gradle files
+.gradle/
+.gradle_cache/
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# Log files
+*.log
+
+# External native build folder generated in Android Studio 2.2 and later
+.externalNativeBuild
+
+# IntelliJ
+*.iml
+
+# Keystore files
+*.jks
+
+# Gradle Wrapper
+/gradle/wrapper/gradle-wrapper.properties
+
+# Proguard folder generated in Android Studio 2.2 and later
+/proguard/
+
+# Miscellaneous
+*.apk
+*.ap_
+*.dex
+*.swp
+.*.swp
+.*sw?
+
+# OSX files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Java binaries
+*.class
+
+# Packages
+*.jar
+*.war
+*.ear
+
+# Virtual machine crash logs
+hs_err_pid*
