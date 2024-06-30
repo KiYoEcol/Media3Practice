@@ -14,9 +14,9 @@ data class VideoModel(
     val title: String,
     val description: String,
     val registeredTimestamp: Long,
-    val goodCount: Int,
-    val badCount: Int,
-    val viewCount: Long
+    val goodCount: Int = 0,
+    val badCount: Int = 0,
+    val viewCount: Long = 0
 ) {
     fun formattedTimeAgo(): String {
         val now = LocalDateTime.now()

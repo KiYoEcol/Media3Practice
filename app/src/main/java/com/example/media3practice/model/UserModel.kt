@@ -9,13 +9,13 @@ data class UserModel(
     val accountName: String,
     val userName: String,
     @DrawableRes val iconRes: Int = R.drawable.shell,
-    val description: String,
-    val links: List<LinkModel>,
+    val description: String? = null,
+    val links: List<LinkModel> = emptyList(),
     val location: String,
     val registeredTimestamp: Long,
-    val videos: List<VideoModel>,
-    val channelRegisteredCount: Int,
-    val isRegistered: Boolean
+    val videos: List<VideoModel> = emptyList(),
+    val channelRegisteredCount: Int = 0,
+    val isRegistered: Boolean = false
 ) {
     fun formattedChannelRegisteredCount(): String = numberFormat(channelRegisteredCount)
 }
