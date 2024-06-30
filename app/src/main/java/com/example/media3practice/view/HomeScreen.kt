@@ -22,8 +22,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.ZeroCornerSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -35,12 +37,16 @@ import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetScaffoldState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -50,8 +56,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -81,36 +90,50 @@ fun HomeScreen() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommentListModal() {
-    val bottomSheetState =
+    val commentListBottomSheetState =
         rememberStandardBottomSheetState(initialValue = SheetValue.Hidden, skipHiddenState = false)
-    val scaffoldState = rememberBottomSheetScaffoldState(bottomSheetState)
+    val commentListScaffoldState = rememberBottomSheetScaffoldState(commentListBottomSheetState)
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
     val peekHeight = screenHeight - screenWidth * (9f / 16)
     val itemsList = List(10) { "Item #$it" }
-
-    Log.d("test", "peek height $peekHeight")
+    var showInputForm by rememberSaveable { mutableStateOf(false) }
+    val inputFormSheetState = rememberModalBottomSheetState()
 
     BottomSheetScaffold(
-        scaffoldState = scaffoldState,
+        scaffoldState = commentListScaffoldState,
         sheetPeekHeight = peekHeight,
         sheetContainerColor = MaterialTheme.colorScheme.background,
         sheetContent = {
-            Text(
-                modifier = Modifier.padding(horizontal = 12.dp),
-                text = "コメント",
-                fontSize = 20.sp
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            CommentListSortButtons()
-            Divider(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-            )
-            LazyColumn(modifier = Modifier.weight(1f)) {
-                items(itemsList) { item ->
-                    CommentSection()
+            Column {
+                Text(
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                    text = "コメント",
+                    fontSize = 20.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                CommentListSortButtons()
+                Divider(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                )
+                LazyColumn(modifier = Modifier.weight(1f)) {
+                    items(itemsList) { item ->
+                        CommentSection()
+                    }
+                }
+                CommentInputSection(onClickInput = {
+                    showInputForm = true
+                })
+            }
+            if (showInputForm) {
+                ModalBottomSheet(
+                    sheetState = inputFormSheetState,
+                    shape = MaterialTheme.shapes.medium.copy(ZeroCornerSize),
+                    onDismissRequest = { showInputForm = false }
+                ) {
+                    CommentInputForm()
                 }
             }
         }
@@ -121,7 +144,7 @@ fun CommentListModal() {
                 modifier = Modifier
                     .fillMaxHeight()
                     .padding(horizontal = 12.dp, vertical = 12.dp),
-                commentListBottomSheetScaffoldState = scaffoldState
+                commentListBottomSheetScaffoldState = commentListScaffoldState
             )
         }
     }
@@ -136,9 +159,9 @@ fun CommentListModalPreview() {
 @Composable
 fun CommentListSortButtons() {
     var isSelectedPopular by rememberSaveable { mutableStateOf(true) }
-    val backgroundTintPopular = if (isSelectedPopular) Color.Black else Color.Gray
+    val backgroundTintPopular = if (isSelectedPopular) Color.Black else Color.LightGray
     var isSelectedNew by rememberSaveable { mutableStateOf(false) }
-    val backgroundTintNew = if (isSelectedNew) Color.Black else Color.Gray
+    val backgroundTintNew = if (isSelectedNew) Color.Black else Color.LightGray
     Row(modifier = Modifier.padding(horizontal = 12.dp)) {
         Button(
             modifier = Modifier
@@ -193,13 +216,7 @@ fun CommentListSortButtonsPreview() {
 @Composable
 fun CommentSection() {
     Row(modifier = Modifier.padding(8.dp)) {
-        Image(
-            painter = painterResource(id = R.drawable.shell),
-            contentDescription = "User Icon",
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-        )
+        UserIconSmall()
         Spacer(modifier = Modifier.width(4.dp))
         Column(modifier = Modifier.weight(1f)) {
             Row {
@@ -252,6 +269,82 @@ fun CommentSection() {
 @Composable
 fun CommentSectionPreview() {
     CommentSection()
+}
+
+@Composable
+fun CommentInputSection(
+    modifier: Modifier = Modifier,
+    onClickInput: () -> Unit = {}
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        UserIconSmall()
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    color = Color.LightGray,
+                    shape = RoundedCornerShape(4.dp)
+                )
+                .padding(horizontal = 8.dp, vertical = 8.dp)
+                .clickable { onClickInput() },
+            text = "コメントする…",
+            color = Color.Gray
+        )
+    }
+}
+
+@Preview(backgroundColor = 0xFFFFFFFF, showBackground = true)
+@Composable
+fun CommentInputSectionPreview() {
+    CommentInputSection()
+}
+
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+fun CommentInputForm() {
+    var text by rememberSaveable { mutableStateOf("") }
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(key1 = Unit) {
+        focusRequester.requestFocus()
+    }
+
+    Row(
+        modifier = Modifier.padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        UserIconSmall()
+        Spacer(modifier = Modifier.width(4.dp))
+        OutlinedTextField(
+            modifier = Modifier
+                .weight(1f)
+                .focusRequester(focusRequester),
+            shape = RoundedCornerShape(4.dp),
+            placeholder = { Text(text = "コメントする…") },
+            value = text,
+            onValueChange = { newText ->
+                text = newText
+            }
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Icon(
+            modifier = Modifier.size(32.dp),
+            imageVector = Icons.Outlined.Send,
+            contentDescription = "Send Comment"
+        )
+    }
+}
+
+@Preview(backgroundColor = 0xFFFFFFFF, showBackground = true)
+@Composable
+fun CommentInputFormPreview() {
+    CommentInputForm()
 }
 
 @Composable
@@ -366,7 +459,7 @@ fun PostedUser() {
             contentDescription = "User Icon",
             contentScale = ContentScale.Crop,
             modifier = Modifier
-                .size(32.dp)
+                .size(36.dp)
                 .clip(CircleShape)
         )
         Spacer(modifier = Modifier.width(12.dp))
@@ -533,13 +626,7 @@ fun TopComment(onClick: () -> Unit = {}) {
         }
         Spacer(modifier = Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Image(
-                painter = painterResource(id = R.drawable.shell),
-                contentDescription = "User Icon",
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-            )
+            UserIconSmall()
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = "海外で「作者は上質なコカ◯ンをきめている」→「コカ◯ンきめたくらいでボーボボが書けると思うな」って流れになった話好き",
