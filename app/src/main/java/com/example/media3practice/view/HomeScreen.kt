@@ -81,6 +81,9 @@ import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.example.media3practice.R
+import com.example.media3practice.model.CommentModel
+import com.example.media3practice.model.CommentRepository
+import com.example.media3practice.numberFormat
 import com.example.media3practice.viewmodel.MainViewModel
 import kotlinx.coroutines.launch
 
@@ -92,7 +95,7 @@ fun HomeScreen() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommentListModal() {
-    val mainViewModel = viewModel(modelClass = MainViewModel::class)
+    val mainViewModel = viewModel { MainViewModel(1) }
     val commentListBottomSheetState =
         rememberStandardBottomSheetState(initialValue = SheetValue.Hidden, skipHiddenState = false)
     val commentListScaffoldState = rememberBottomSheetScaffoldState(commentListBottomSheetState)
@@ -446,7 +449,12 @@ fun InfoContentScreen(
         Spacer(modifier = Modifier.height(12.dp))
         ActionButtons(viewModel)
         Spacer(modifier = Modifier.height(12.dp))
+
+        val commentCount = viewModel.commentsOfVideo.size
+        val formattedCommentsCount = numberFormat(commentCount)
         TopComment(
+            formattedCommentsCount = formattedCommentsCount,
+            topComment = viewModel.commentsOfVideo.first(),
             onClick = {
                 coroutineScope.launch {
                     if (commentListBottomSheetScaffoldState.bottomSheetState.currentValue == SheetValue.Hidden) {
@@ -626,9 +634,14 @@ fun InfoContentScreenPreview() {
 }
 
 @Composable
-fun TopComment(onClick: () -> Unit = {}) {
+fun TopComment(
+    formattedCommentsCount: String,
+    topComment: CommentModel,
+    onClick: () -> Unit = {}
+) {
     Column(
         modifier = Modifier
+            .fillMaxWidth()
             .background(
                 color = Color.LightGray,
                 shape = RoundedCornerShape(12.dp)
@@ -639,14 +652,14 @@ fun TopComment(onClick: () -> Unit = {}) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(text = "コメント")
             Spacer(modifier = Modifier.width(4.dp))
-            Text(text = "718", fontSize = 12.sp, color = Color.Gray)
+            Text(text = formattedCommentsCount, fontSize = 12.sp, color = Color.Gray)
         }
         Spacer(modifier = Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            UserIconSmall()
+            UserIconSmall(userImageRes = topComment.user.iconRes)
             Spacer(modifier = Modifier.width(4.dp))
             Text(
-                text = "海外で「作者は上質なコカ◯ンをきめている」→「コカ◯ンきめたくらいでボーボボが書けると思うな」って流れになった話好き",
+                text = topComment.comment,
                 fontSize = 14.sp,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
@@ -658,5 +671,7 @@ fun TopComment(onClick: () -> Unit = {}) {
 @Preview
 @Composable
 fun TopCommentPreview() {
-    TopComment()
+    val comment = CommentRepository().dummyComment(1)
+    val formattedCommentsCount = numberFormat(10)
+    TopComment(formattedCommentsCount, comment)
 }
