@@ -76,10 +76,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.example.media3practice.R
+import com.example.media3practice.viewmodel.MainViewModel
 import kotlinx.coroutines.launch
 
 @Composable
@@ -90,6 +92,7 @@ fun HomeScreen() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommentListModal() {
+    val mainViewModel = viewModel(modelClass = MainViewModel::class)
     val commentListBottomSheetState =
         rememberStandardBottomSheetState(initialValue = SheetValue.Hidden, skipHiddenState = false)
     val commentListScaffoldState = rememberBottomSheetScaffoldState(commentListBottomSheetState)
@@ -139,12 +142,13 @@ fun CommentListModal() {
         }
     ) {
         Column {
-            VideoPlayerScreen()
+            VideoPlayerScreen(mainViewModel)
             InfoContentScreen(
                 modifier = Modifier
                     .fillMaxHeight()
                     .padding(horizontal = 12.dp, vertical = 12.dp),
-                commentListBottomSheetScaffoldState = commentListScaffoldState
+                commentListBottomSheetScaffoldState = commentListScaffoldState,
+                viewModel = mainViewModel
             )
         }
     }
@@ -348,7 +352,7 @@ fun CommentInputFormPreview() {
 }
 
 @Composable
-fun VideoPlayerScreen() {
+fun VideoPlayerScreen(viewModel: MainViewModel) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -361,7 +365,7 @@ fun VideoPlayerScreen() {
             .build()
             .also { exoPlayer ->
                 val mediaItem = MediaItem.Builder()
-                    .setUri("https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4")
+                    .setUri(viewModel.video.url)
                     .build()
                 exoPlayer.setMediaItem(mediaItem)
 
@@ -417,25 +421,30 @@ fun VideoPlayerScreen() {
 @Composable
 fun InfoContentScreen(
     modifier: Modifier = Modifier,
-    commentListBottomSheetScaffoldState: BottomSheetScaffoldState
+    commentListBottomSheetScaffoldState: BottomSheetScaffoldState,
+    viewModel: MainViewModel
 ) {
     val coroutineScope = rememberCoroutineScope()
 
     Column(
         modifier = modifier
     ) {
-        Text(text = "一緒に正解したい！！！！【高校生クイズのアレ】", fontSize = 20.sp)
+        Text(text = viewModel.video.title, fontSize = 20.sp)
         Row {
-            Text(text = "171万回視聴", fontSize = 12.sp, color = Color.Gray)
+            Text(
+                text = "${viewModel.video.formattedViewCount()}回視聴",
+                fontSize = 12.sp,
+                color = Color.Gray
+            )
             Spacer(modifier = Modifier.width(8.dp))
-            Text(text = "4年前", fontSize = 12.sp, color = Color.Gray)
+            Text(text = viewModel.video.formattedTimeAgo(), fontSize = 12.sp, color = Color.Gray)
             Spacer(modifier = Modifier.width(8.dp))
             Text(text = "…その他", fontSize = 12.sp)
         }
         Spacer(modifier = Modifier.height(12.dp))
-        PostedUser()
+        PostedUser(viewModel)
         Spacer(modifier = Modifier.height(12.dp))
-        ActionButtons()
+        ActionButtons(viewModel)
         Spacer(modifier = Modifier.height(12.dp))
         TopComment(
             onClick = {
@@ -452,10 +461,10 @@ fun InfoContentScreen(
 }
 
 @Composable
-fun PostedUser() {
+fun PostedUser(viewModel: MainViewModel) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Image(
-            painter = painterResource(id = R.drawable.shell),
+            painter = painterResource(id = viewModel.video.owner.iconRes),
             contentDescription = "User Icon",
             contentScale = ContentScale.Crop,
             modifier = Modifier
@@ -463,9 +472,13 @@ fun PostedUser() {
                 .clip(CircleShape)
         )
         Spacer(modifier = Modifier.width(12.dp))
-        Text(text = "じゃぱんぱん")
+        Text(text = viewModel.video.owner.accountName)
         Spacer(modifier = Modifier.width(8.dp))
-        Text(text = "2760", fontSize = 12.sp, color = Color.Gray)
+        Text(
+            text = viewModel.video.owner.formattedChannelRegisteredCount(),
+            fontSize = 12.sp,
+            color = Color.Gray
+        )
         Spacer(modifier = Modifier.weight(1f))
         Button(
             onClick = { /*TODO*/ },
@@ -477,7 +490,7 @@ fun PostedUser() {
 }
 
 @Composable
-fun ActionButtons() {
+fun ActionButtons(viewModel: MainViewModel) {
     val horizontalScrollState = rememberScrollState()
     Row(modifier = Modifier.horizontalScroll(horizontalScrollState)) {
         AssistChip(
@@ -492,7 +505,7 @@ fun ActionButtons() {
                             modifier = Modifier.size(AssistChipDefaults.IconSize)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = "2274")
+                        Text(text = viewModel.video.formattedGoodCount())
                         Spacer(modifier = Modifier.width(4.dp))
                         Divider(
                             modifier = Modifier
@@ -605,7 +618,11 @@ fun ActionButtons() {
 @Preview(backgroundColor = 0xFFFFFFFF, showBackground = true)
 @Composable
 fun InfoContentScreenPreview() {
-    InfoContentScreen(commentListBottomSheetScaffoldState = rememberBottomSheetScaffoldState())
+    val viewModel = viewModel(modelClass = MainViewModel::class)
+    InfoContentScreen(
+        commentListBottomSheetScaffoldState = rememberBottomSheetScaffoldState(),
+        viewModel = viewModel
+    )
 }
 
 @Composable
