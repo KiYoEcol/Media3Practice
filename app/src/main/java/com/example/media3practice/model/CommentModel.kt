@@ -5,6 +5,7 @@ import com.example.media3practice.timestampFormatAgo
 
 data class CommentModel(
     val id: Int,
+    val videoId: Int,
     val user: UserModel,
     val comment: String,
     val idOfOriginalReplay: Int? = null,

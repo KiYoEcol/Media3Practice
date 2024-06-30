@@ -102,7 +102,6 @@ fun CommentListModal() {
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
     val peekHeight = screenHeight - screenWidth * (9f / 16)
-    val itemsList = List(10) { "Item #$it" }
     var showInputForm by rememberSaveable { mutableStateOf(false) }
     val inputFormSheetState = rememberModalBottomSheetState()
 
@@ -125,8 +124,8 @@ fun CommentListModal() {
                         .height(1.dp)
                 )
                 LazyColumn(modifier = Modifier.weight(1f)) {
-                    items(itemsList) { item ->
-                        CommentSection()
+                    items(mainViewModel.commentsOfVideo) { comment ->
+                        CommentSection(comment)
                     }
                 }
                 CommentInputSection(onClickInput = {
@@ -221,19 +220,21 @@ fun CommentListSortButtonsPreview() {
 }
 
 @Composable
-fun CommentSection() {
+fun CommentSection(
+    comment: CommentModel
+) {
     Row(modifier = Modifier.padding(8.dp)) {
-        UserIconSmall()
+        UserIconSmall(comment.user.iconRes)
         Spacer(modifier = Modifier.width(4.dp))
         Column(modifier = Modifier.weight(1f)) {
             Row {
                 Text(text = "@", color = Color.Gray, fontSize = 14.sp)
-                Text(text = "aya_nu0211", color = Color.Gray, fontSize = 14.sp)
+                Text(text = comment.user.userName, color = Color.Gray, fontSize = 14.sp)
                 Text(text = "・", color = Color.Gray, fontSize = 14.sp)
-                Text(text = "3年前", color = Color.Gray, fontSize = 14.sp)
+                Text(text = comment.formattedTimeAgo(), color = Color.Gray, fontSize = 14.sp)
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Text(text = "ワンツーツーワンもあるよwwwそんなポロリもあるよみたいなノリでww")
+            Text(text = comment.comment)
             Spacer(modifier = Modifier.height(12.dp))
             Row {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -244,7 +245,7 @@ fun CommentSection() {
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "1057", color = Color.Gray)
+                    Text(text = comment.formattedGoodCount(), color = Color.Gray)
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Icon(
@@ -262,7 +263,9 @@ fun CommentSection() {
                 )
             }
             Spacer(modifier = Modifier.height(12.dp))
-            Text(text = "11件の返信")
+            if (comment.replyCount > 0) {
+                Text(text = "${comment.replyCount}件の返信")
+            }
         }
         Icon(
             imageVector = Icons.Default.MoreVert,
@@ -275,7 +278,8 @@ fun CommentSection() {
 @Preview(backgroundColor = 0xFFFFFFFF, showBackground = true)
 @Composable
 fun CommentSectionPreview() {
-    CommentSection()
+    val comment = CommentRepository().dummyComment(1, 1)
+    CommentSection(comment)
 }
 
 @Composable
@@ -671,7 +675,7 @@ fun TopComment(
 @Preview
 @Composable
 fun TopCommentPreview() {
-    val comment = CommentRepository().dummyComment(1)
+    val comment = CommentRepository().dummyComment(1,1)
     val formattedCommentsCount = numberFormat(10)
     TopComment(formattedCommentsCount, comment)
 }
