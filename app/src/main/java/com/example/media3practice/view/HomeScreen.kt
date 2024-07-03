@@ -88,14 +88,14 @@ import com.example.media3practice.viewmodel.MainViewModel
 import kotlinx.coroutines.launch
 
 @Composable
-fun HomeScreen() {
-    CommentListModal()
+fun HomeScreen(videoId: Int) {
+    CommentListModal(videoId)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CommentListModal() {
-    val mainViewModel = viewModel { MainViewModel(1) }
+fun CommentListModal(videoId: Int) {
+    val mainViewModel = viewModel { MainViewModel(videoId) }
     val commentListBottomSheetState =
         rememberStandardBottomSheetState(initialValue = SheetValue.Hidden, skipHiddenState = false)
     val commentListScaffoldState = rememberBottomSheetScaffoldState(commentListBottomSheetState)
@@ -123,10 +123,29 @@ fun CommentListModal() {
                         .fillMaxWidth()
                         .height(1.dp)
                 )
-                LazyColumn(modifier = Modifier.weight(1f)) {
-                    items(mainViewModel.commentsOfVideo) { comment ->
-                        CommentSection(comment)
+
+                val commentCount = mainViewModel.commentsOfVideo.size
+                if (commentCount > 0) {
+                    LazyColumn(modifier = Modifier.weight(1f)) {
+                        items(mainViewModel.commentsOfVideo) { comment ->
+                            CommentSection(comment)
+                        }
                     }
+                } else {
+                    Spacer(modifier = Modifier.size(32.dp))
+                    Text(
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally),
+                        text = "コメントはまだありません",
+                        fontSize = 16.sp
+                    )
+                    Text(
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally),
+                        text = "コメントを追加して会話を始めましょう",
+                        color = Color.Gray
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
                 }
                 CommentInputSection(onClickInput = {
                     showInputForm = true
@@ -159,7 +178,7 @@ fun CommentListModal() {
 @Preview
 @Composable
 fun CommentListModalPreview() {
-    CommentListModal()
+    CommentListModal(1)
 }
 
 @Composable
@@ -455,20 +474,25 @@ fun InfoContentScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         val commentCount = viewModel.commentsOfVideo.size
-        val formattedCommentsCount = numberFormat(commentCount)
-        TopComment(
-            formattedCommentsCount = formattedCommentsCount,
-            topComment = viewModel.commentsOfVideo.first(),
-            onClick = {
-                coroutineScope.launch {
-                    if (commentListBottomSheetScaffoldState.bottomSheetState.currentValue == SheetValue.Hidden) {
-                        commentListBottomSheetScaffoldState.bottomSheetState.show()
-                    } else {
-                        commentListBottomSheetScaffoldState.bottomSheetState.hide()
-                    }
+        val onClickTopCommentSection: () -> Unit = {
+            coroutineScope.launch {
+                if (commentListBottomSheetScaffoldState.bottomSheetState.currentValue == SheetValue.Hidden) {
+                    commentListBottomSheetScaffoldState.bottomSheetState.show()
+                } else {
+                    commentListBottomSheetScaffoldState.bottomSheetState.hide()
                 }
             }
-        )
+        }
+        if (commentCount > 0) {
+            val formattedCommentsCount = numberFormat(commentCount)
+            TopComment(
+                formattedCommentsCount = formattedCommentsCount,
+                topComment = viewModel.commentsOfVideo.first(),
+                onClick = onClickTopCommentSection
+            )
+        } else {
+            NoneTopComment(onClick = onClickTopCommentSection)
+        }
     }
 }
 
@@ -675,7 +699,43 @@ fun TopComment(
 @Preview
 @Composable
 fun TopCommentPreview() {
-    val comment = CommentRepository().dummyComment(1,1)
+    val comment = CommentRepository().dummyComment(1, 1)
     val formattedCommentsCount = numberFormat(10)
     TopComment(formattedCommentsCount, comment)
+}
+
+@Composable
+fun NoneTopComment(
+    onClick: () -> Unit = {}
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = Color.LightGray,
+                shape = RoundedCornerShape(12.dp)
+            )
+            .padding(8.dp)
+            .clickable { onClick() }
+    ) {
+        Text(text = "コメント")
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            UserIconSmall(userImageRes = R.drawable.shell)
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(color = Color.Gray, shape = CircleShape)
+                    .padding(horizontal = 8.dp),
+                text = "コメントする…"
+            )
+        }
+    }
+}
+
+@Preview
+@Composable
+fun NoneTopCommentPreview() {
+    NoneTopComment()
 }
