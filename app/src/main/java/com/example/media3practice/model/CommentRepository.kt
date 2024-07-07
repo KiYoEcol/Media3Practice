@@ -3,9 +3,21 @@ package com.example.media3practice.model
 import kotlin.random.Random
 
 class CommentRepository {
-    fun getComments(videoId: Int): List<CommentModel> = dummyComments(videoId)
+    fun getComments(videoId: Int): List<CommentModel> {
+        return dummyComments.filter { it.videoId == videoId }
+    }
 
-    fun dummyComment(id: Int, videoId: Int, comment: String = "dummy"): CommentModel {
+    suspend fun insertComment(comment: CommentModel) {
+        dummyComments.add(comment)
+    }
+
+    val dummyComments: MutableList<CommentModel> = mutableListOf<CommentModel>().apply {
+        addAll(createDummyComments(1))
+        addAll(createDummyComments(2))
+        addAll(createDummyComments(3))
+    }
+
+    fun createDummyComment(id: Int, videoId: Int, comment: String = "dummy"): CommentModel {
         return CommentModel(
             id = id,
             videoId = videoId,
@@ -19,10 +31,10 @@ class CommentRepository {
         )
     }
 
-    fun dummyComments(videoId: Int): List<CommentModel> {
+    fun createDummyComments(videoId: Int): List<CommentModel> {
         val list = mutableListOf<CommentModel>()
         for (i in 1..10) {
-            val comment = dummyComment(id = i, videoId = videoId, comment = "dummy $i")
+            val comment = createDummyComment(id = i, videoId = videoId, comment = "dummy $i")
             list.add(comment)
         }
         return list

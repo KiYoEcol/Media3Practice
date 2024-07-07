@@ -36,6 +36,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -104,6 +105,7 @@ fun CommentListModal(videoId: Int) {
     val peekHeight = screenHeight - screenWidth * (9f / 16)
     var showInputForm by rememberSaveable { mutableStateOf(false) }
     val inputFormSheetState = rememberModalBottomSheetState()
+    val coroutineScope = rememberCoroutineScope()
 
     BottomSheetScaffold(
         scaffoldState = commentListScaffoldState,
@@ -147,9 +149,12 @@ fun CommentListModal(videoId: Int) {
                     )
                     Spacer(modifier = Modifier.weight(1f))
                 }
-                CommentInputSection(onClickInput = {
-                    showInputForm = true
-                })
+                CommentInputSection(
+                    viewModel = mainViewModel,
+                    onClickInput = {
+                        showInputForm = true
+                    }
+                )
             }
             if (showInputForm) {
                 ModalBottomSheet(
@@ -157,7 +162,16 @@ fun CommentListModal(videoId: Int) {
                     shape = MaterialTheme.shapes.medium.copy(ZeroCornerSize),
                     onDismissRequest = { showInputForm = false }
                 ) {
-                    CommentInputForm()
+                    CommentInputForm(
+                        viewModel = mainViewModel,
+                        onClickSend = {
+                            coroutineScope.launch {
+                                mainViewModel.saveNewComment()
+                                mainViewModel.refreshNewComment()
+                                showInputForm = false
+                            }
+                        }
+                    )
                 }
             }
         }
@@ -297,13 +311,14 @@ fun CommentSection(
 @Preview(backgroundColor = 0xFFFFFFFF, showBackground = true)
 @Composable
 fun CommentSectionPreview() {
-    val comment = CommentRepository().dummyComment(1, 1)
+    val comment = CommentRepository().createDummyComment(1, 1)
     CommentSection(comment)
 }
 
 @Composable
 fun CommentInputSection(
     modifier: Modifier = Modifier,
+    viewModel: MainViewModel,
     onClickInput: () -> Unit = {}
 ) {
     Row(
@@ -323,7 +338,7 @@ fun CommentInputSection(
                 )
                 .padding(horizontal = 8.dp, vertical = 8.dp)
                 .clickable { onClickInput() },
-            text = "コメントする…",
+            text = if (viewModel.validateInputComment()) viewModel.newComment.comment else "コメントする…",
             color = Color.Gray
         )
     }
@@ -332,13 +347,15 @@ fun CommentInputSection(
 @Preview(backgroundColor = 0xFFFFFFFF, showBackground = true)
 @Composable
 fun CommentInputSectionPreview() {
-    CommentInputSection()
+    val viewModel = MainViewModel(1)
+    CommentInputSection(viewModel = viewModel)
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun CommentInputForm() {
-    var text by rememberSaveable { mutableStateOf("") }
+fun CommentInputForm(
+    viewModel: MainViewModel,
+    onClickSend: () -> Unit
+) {
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(key1 = Unit) {
@@ -357,24 +374,28 @@ fun CommentInputForm() {
                 .focusRequester(focusRequester),
             shape = RoundedCornerShape(4.dp),
             placeholder = { Text(text = "コメントする…") },
-            value = text,
-            onValueChange = { newText ->
-                text = newText
-            }
+            value = viewModel.newComment.comment,
+            onValueChange = viewModel::updateCommentOfNewComment
         )
         Spacer(modifier = Modifier.width(4.dp))
-        Icon(
-            modifier = Modifier.size(32.dp),
-            imageVector = Icons.Outlined.Send,
-            contentDescription = "Send Comment"
-        )
+        IconButton(
+            onClick = onClickSend,
+            enabled = viewModel.validateInputComment()
+        ) {
+            Icon(
+                modifier = Modifier.size(32.dp),
+                imageVector = Icons.Outlined.Send,
+                contentDescription = "Send Comment"
+            )
+        }
     }
 }
 
 @Preview(backgroundColor = 0xFFFFFFFF, showBackground = true)
 @Composable
 fun CommentInputFormPreview() {
-    CommentInputForm()
+    val viewModel = viewModel { MainViewModel(1) }
+    CommentInputForm(viewModel, {})
 }
 
 @Composable
@@ -699,7 +720,7 @@ fun TopComment(
 @Preview
 @Composable
 fun TopCommentPreview() {
-    val comment = CommentRepository().dummyComment(1, 1)
+    val comment = CommentRepository().createDummyComment(1, 1)
     val formattedCommentsCount = numberFormat(10)
     TopComment(formattedCommentsCount, comment)
 }
