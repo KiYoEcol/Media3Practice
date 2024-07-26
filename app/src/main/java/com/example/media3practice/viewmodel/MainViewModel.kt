@@ -1,23 +1,40 @@
 package com.example.media3practice.viewmodel
 
+import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.media3practice.R
 import com.example.media3practice.model.CommentModel
 import com.example.media3practice.model.CommentRepository
 import com.example.media3practice.model.UserModel
-import com.example.media3practice.model.UserRepository
-import com.example.media3practice.model.VideoRepository
+import com.example.media3practice.model.UserWithVideoWithLinkRepository
+import com.example.media3practice.model.VideoModel
+import com.example.media3practice.model.data.CommentDatabase
+import com.example.media3practice.model.data.UserWithVideoWithLinkDatabase
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
-class MainViewModel(videoId: Int) : ViewModel() {
-    private val videoRepository = VideoRepository()
-    private val userRepository = UserRepository()
-    private val commentRepository = CommentRepository()
+class MainViewModel(app: Application, private val videoId: Int) : AndroidViewModel(app) {
+    private val userWithVideoWithLinkRepository =
+        UserWithVideoWithLinkRepository(UserWithVideoWithLinkDatabase.getDatabase(app))
+    private val commentRepository = CommentRepository(
+        CommentDatabase.getDatabase(getApplication()),
+        UserWithVideoWithLinkDatabase.getDatabase(getApplication())
+    )
 
     val loginUser = UserModel(
-        id = 1,
+        id = 2,
         accountName = "User Name",
         userName = "user_1",
         iconRes = R.drawable.shell,
@@ -30,16 +47,16 @@ class MainViewModel(videoId: Int) : ViewModel() {
         isRegistered = false
     )
 
-    val video = videoRepository.getVideo(videoId)
+    val videoAndOwnerUser = userWithVideoWithLinkRepository.getVideoAndOwnerUser(videoId)
     val commentsOfVideo = commentRepository.getComments(videoId)
 
     var newComment by mutableStateOf(
         CommentModel(
             id = 0,
-            videoId = video.id,
+            videoId = videoId,
             user = loginUser,
             comment = "",
-            idOfOriginalReplay = null,
+            idOfOriginalReply = null,
             registeredTimestamp = 0L,
             goodCount = 0,
             badCount = 0,
@@ -54,10 +71,10 @@ class MainViewModel(videoId: Int) : ViewModel() {
     fun refreshNewComment() {
         newComment = CommentModel(
             id = 0,
-            videoId = video.id,
+            videoId = videoId,
             user = loginUser,
             comment = "",
-            idOfOriginalReplay = null,
+            idOfOriginalReply = null,
             registeredTimestamp = 0L,
             goodCount = 0,
             badCount = 0,
