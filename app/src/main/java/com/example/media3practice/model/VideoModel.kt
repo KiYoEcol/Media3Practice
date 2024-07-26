@@ -5,10 +5,10 @@ import com.example.media3practice.timestampFormatAgo
 
 data class VideoModel(
     val id: Int,
+    val ownerUserId: Int,
     val url: String,
-    val owner: UserModel,
     val title: String,
-    val description: String,
+    val description: String?,
     val registeredTimestamp: Long,
     val goodCount: Int = 0,
     val badCount: Int = 0,
