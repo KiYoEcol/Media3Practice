@@ -1,5 +1,6 @@
 package com.example.media3practice.view
 
+import android.app.Application
 import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -48,6 +49,7 @@ import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -57,7 +59,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
@@ -84,8 +85,13 @@ import androidx.media3.ui.PlayerView
 import com.example.media3practice.R
 import com.example.media3practice.model.CommentModel
 import com.example.media3practice.model.CommentRepository
+import com.example.media3practice.model.UserModel
+import com.example.media3practice.model.UserWithVideoWithLinkRepository
+import com.example.media3practice.model.VideoModel
 import com.example.media3practice.numberFormat
+import com.example.media3practice.viewmodel.MainVIewModelFactory
 import com.example.media3practice.viewmodel.MainViewModel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @Composable
@@ -96,7 +102,11 @@ fun HomeScreen(videoId: Int) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommentListModal(videoId: Int) {
-    val mainViewModel = viewModel { MainViewModel(videoId) }
+    val app = LocalContext.current.applicationContext as Application
+    val mainViewModel: MainViewModel = viewModel(factory = MainVIewModelFactory(app, videoId))
+    val videoAndOwnerUser by mainViewModel.videoAndOwnerUser.collectAsState(initial = null)
+    val comments by mainViewModel.commentsOfVideo.collectAsState(initial = null)
+
     val commentListBottomSheetState =
         rememberStandardBottomSheetState(initialValue = SheetValue.Hidden, skipHiddenState = false)
     val commentListScaffoldState = rememberBottomSheetScaffoldState(commentListBottomSheetState)
@@ -105,6 +115,7 @@ fun CommentListModal(videoId: Int) {
     val peekHeight = screenHeight - screenWidth * (9f / 16)
     var showInputForm by rememberSaveable { mutableStateOf(false) }
     val inputFormSheetState = rememberModalBottomSheetState()
+
     val coroutineScope = rememberCoroutineScope()
 
     BottomSheetScaffold(
@@ -126,10 +137,15 @@ fun CommentListModal(videoId: Int) {
                         .height(1.dp)
                 )
 
-                val commentCount = mainViewModel.commentsOfVideo.size
+                var commentCount by rememberSaveable { mutableStateOf(0) }
+                LaunchedEffect(Unit) {
+                    commentCount = mainViewModel.commentsOfVideo.first().size
+                }
+
                 if (commentCount > 0) {
+                    val comments by mainViewModel.commentsOfVideo.collectAsState(emptyList())
                     LazyColumn(modifier = Modifier.weight(1f)) {
-                        items(mainViewModel.commentsOfVideo) { comment ->
+                        items(comments) { comment ->
                             CommentSection(comment)
                         }
                     }
@@ -177,14 +193,20 @@ fun CommentListModal(videoId: Int) {
         }
     ) {
         Column {
-            VideoPlayerScreen(mainViewModel)
-            InfoContentScreen(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
-                commentListBottomSheetScaffoldState = commentListScaffoldState,
-                viewModel = mainViewModel
-            )
+            videoAndOwnerUser?.let {
+                VideoPlayerScreen(videoAndOwnerUser!!.first)
+                comments?.let {
+                    InfoContentScreen(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .padding(horizontal = 12.dp, vertical = 12.dp),
+                        commentListBottomSheetScaffoldState = commentListScaffoldState,
+                        video = videoAndOwnerUser!!.first,
+                        videoOwnerUser = videoAndOwnerUser!!.second,
+                        comments = comments!!
+                    )
+                }
+            }
         }
     }
 }
@@ -311,7 +333,7 @@ fun CommentSection(
 @Preview(backgroundColor = 0xFFFFFFFF, showBackground = true)
 @Composable
 fun CommentSectionPreview() {
-    val comment = CommentRepository().createDummyComment(1, 1)
+    val comment = CommentRepository.createDummyComment(1, 1)
     CommentSection(comment)
 }
 
@@ -347,7 +369,8 @@ fun CommentInputSection(
 @Preview(backgroundColor = 0xFFFFFFFF, showBackground = true)
 @Composable
 fun CommentInputSectionPreview() {
-    val viewModel = MainViewModel(1)
+    val app = LocalContext.current.applicationContext as Application
+    val viewModel = MainViewModel(app, 1)
     CommentInputSection(viewModel = viewModel)
 }
 
@@ -394,12 +417,13 @@ fun CommentInputForm(
 @Preview(backgroundColor = 0xFFFFFFFF, showBackground = true)
 @Composable
 fun CommentInputFormPreview() {
-    val viewModel = viewModel { MainViewModel(1) }
+    val app = LocalContext.current.applicationContext as Application
+    val viewModel = viewModel { MainViewModel(app, 1) }
     CommentInputForm(viewModel, {})
 }
 
 @Composable
-fun VideoPlayerScreen(viewModel: MainViewModel) {
+fun VideoPlayerScreen(video: VideoModel) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -412,8 +436,9 @@ fun VideoPlayerScreen(viewModel: MainViewModel) {
             .build()
             .also { exoPlayer ->
                 val mediaItem = MediaItem.Builder()
-                    .setUri(viewModel.video.url)
+                    .setUri(video.url)
                     .build()
+                Log.d("test", "test: ${video}")
                 exoPlayer.setMediaItem(mediaItem)
 
                 exoPlayer.playWhenReady = playWhenReady
@@ -469,32 +494,33 @@ fun VideoPlayerScreen(viewModel: MainViewModel) {
 fun InfoContentScreen(
     modifier: Modifier = Modifier,
     commentListBottomSheetScaffoldState: BottomSheetScaffoldState,
-    viewModel: MainViewModel
+    video: VideoModel,
+    videoOwnerUser: UserModel,
+    comments: List<CommentModel>
 ) {
     val coroutineScope = rememberCoroutineScope()
 
     Column(
         modifier = modifier
     ) {
-        Text(text = viewModel.video.title, fontSize = 20.sp)
+        Text(text = video.title ?: "", fontSize = 20.sp)
         Row {
             Text(
-                text = "${viewModel.video.formattedViewCount()}回視聴",
+                text = "${video.formattedViewCount()}回視聴",
                 fontSize = 12.sp,
                 color = Color.Gray
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text(text = viewModel.video.formattedTimeAgo(), fontSize = 12.sp, color = Color.Gray)
+            Text(text = video.formattedTimeAgo() ?: "", fontSize = 12.sp, color = Color.Gray)
             Spacer(modifier = Modifier.width(8.dp))
             Text(text = "…その他", fontSize = 12.sp)
         }
         Spacer(modifier = Modifier.height(12.dp))
-        PostedUser(viewModel)
+        PostedUser(videoOwnerUser)
         Spacer(modifier = Modifier.height(12.dp))
-        ActionButtons(viewModel)
+        ActionButtons(video)
         Spacer(modifier = Modifier.height(12.dp))
 
-        val commentCount = viewModel.commentsOfVideo.size
         val onClickTopCommentSection: () -> Unit = {
             coroutineScope.launch {
                 if (commentListBottomSheetScaffoldState.bottomSheetState.currentValue == SheetValue.Hidden) {
@@ -504,11 +530,12 @@ fun InfoContentScreen(
                 }
             }
         }
-        if (commentCount > 0) {
-            val formattedCommentsCount = numberFormat(commentCount)
+
+        if (comments.isNotEmpty()) {
+            val formattedCommentsCount = numberFormat(comments.size)
             TopComment(
                 formattedCommentsCount = formattedCommentsCount,
-                topComment = viewModel.commentsOfVideo.first(),
+                topComment = comments[0],
                 onClick = onClickTopCommentSection
             )
         } else {
@@ -518,10 +545,10 @@ fun InfoContentScreen(
 }
 
 @Composable
-fun PostedUser(viewModel: MainViewModel) {
+fun PostedUser(videoOwnerUser: UserModel) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Image(
-            painter = painterResource(id = viewModel.video.owner.iconRes),
+            painter = painterResource(id = videoOwnerUser.iconRes ?: 0),
             contentDescription = "User Icon",
             contentScale = ContentScale.Crop,
             modifier = Modifier
@@ -529,10 +556,10 @@ fun PostedUser(viewModel: MainViewModel) {
                 .clip(CircleShape)
         )
         Spacer(modifier = Modifier.width(12.dp))
-        Text(text = viewModel.video.owner.accountName)
+        Text(text = videoOwnerUser.accountName ?: "")
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = viewModel.video.owner.formattedChannelRegisteredCount(),
+            text = videoOwnerUser.formattedChannelRegisteredCount() ?: "",
             fontSize = 12.sp,
             color = Color.Gray
         )
@@ -547,7 +574,7 @@ fun PostedUser(viewModel: MainViewModel) {
 }
 
 @Composable
-fun ActionButtons(viewModel: MainViewModel) {
+fun ActionButtons(video: VideoModel) {
     val horizontalScrollState = rememberScrollState()
     Row(modifier = Modifier.horizontalScroll(horizontalScrollState)) {
         AssistChip(
@@ -562,7 +589,7 @@ fun ActionButtons(viewModel: MainViewModel) {
                             modifier = Modifier.size(AssistChipDefaults.IconSize)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = viewModel.video.formattedGoodCount())
+                        Text(text = video.formattedGoodCount() ?: "")
                         Spacer(modifier = Modifier.width(4.dp))
                         Divider(
                             modifier = Modifier
@@ -675,10 +702,11 @@ fun ActionButtons(viewModel: MainViewModel) {
 @Preview(backgroundColor = 0xFFFFFFFF, showBackground = true)
 @Composable
 fun InfoContentScreenPreview() {
-    val viewModel = viewModel(modelClass = MainViewModel::class)
     InfoContentScreen(
         commentListBottomSheetScaffoldState = rememberBottomSheetScaffoldState(),
-        viewModel = viewModel
+        video = UserWithVideoWithLinkRepository.dummyVideo(0),
+        videoOwnerUser = UserWithVideoWithLinkRepository.dummyUser(0),
+        comments = CommentRepository.createDummyComments(0)
     )
 }
 
@@ -720,7 +748,7 @@ fun TopComment(
 @Preview
 @Composable
 fun TopCommentPreview() {
-    val comment = CommentRepository().createDummyComment(1, 1)
+    val comment = CommentRepository.createDummyComment(1, 1)
     val formattedCommentsCount = numberFormat(10)
     TopComment(formattedCommentsCount, comment)
 }
