@@ -104,6 +104,7 @@ fun HomeScreen(videoId: Int) {
 fun CommentListModal(videoId: Int) {
     val app = LocalContext.current.applicationContext as Application
     val mainViewModel: MainViewModel = viewModel(factory = MainVIewModelFactory(app, videoId))
+    val loginUser by mainViewModel.loginUser.collectAsState(initial = null)
     val videoAndOwnerUser by mainViewModel.videoAndOwnerUser.collectAsState(initial = null)
     val comments by mainViewModel.commentsOfVideo.collectAsState(initial = null)
     val commentCount = comments?.size ?: 0
@@ -191,15 +192,18 @@ fun CommentListModal(videoId: Int) {
             videoAndOwnerUser?.let {
                 VideoPlayerScreen(videoAndOwnerUser!!.first)
                 comments?.let {
-                    InfoContentScreen(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .padding(horizontal = 12.dp, vertical = 12.dp),
-                        commentListBottomSheetScaffoldState = commentListScaffoldState,
-                        video = videoAndOwnerUser!!.first,
-                        videoOwnerUser = videoAndOwnerUser!!.second,
-                        comments = comments!!
-                    )
+                    loginUser?.let {
+                        InfoContentScreen(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .padding(horizontal = 12.dp, vertical = 12.dp),
+                            commentListBottomSheetScaffoldState = commentListScaffoldState,
+                            video = videoAndOwnerUser!!.first,
+                            videoOwnerUser = videoAndOwnerUser!!.second,
+                            comments = comments!!,
+                            loginUser = loginUser!!
+                        )
+                    }
                 }
             }
         }
@@ -338,13 +342,16 @@ fun CommentInputSection(
     viewModel: MainViewModel,
     onClickInput: () -> Unit = {}
 ) {
+    val commentedUser by viewModel.loginUser.collectAsState(initial = null)
     Row(
         modifier = modifier
             .fillMaxWidth()
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        UserIconSmall()
+        commentedUser?.let {
+            UserIconSmall(commentedUser!!.iconRes)
+        }
         Spacer(modifier = Modifier.width(4.dp))
         Text(
             modifier = Modifier
@@ -355,7 +362,7 @@ fun CommentInputSection(
                 )
                 .padding(horizontal = 8.dp, vertical = 8.dp)
                 .clickable { onClickInput() },
-            text = if (viewModel.validateInputComment()) viewModel.newComment.comment else "コメントする…",
+            text = if (viewModel.validateInputComment()) viewModel.commentState else "コメントする…",
             color = Color.Gray
         )
     }
@@ -374,6 +381,7 @@ fun CommentInputForm(
     viewModel: MainViewModel,
     onClickSend: () -> Unit
 ) {
+    val commentedUser by viewModel.loginUser.collectAsState(initial = null)
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(key1 = Unit) {
@@ -384,16 +392,18 @@ fun CommentInputForm(
         modifier = Modifier.padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        UserIconSmall()
+        commentedUser?.let {
+            UserIconSmall(userImageRes = commentedUser!!.iconRes)
+        }
         Spacer(modifier = Modifier.width(4.dp))
         OutlinedTextField(
             modifier = Modifier
                 .weight(1f)
                 .focusRequester(focusRequester),
             shape = RoundedCornerShape(4.dp),
-            placeholder = { Text(text = "コメントする…") },
-            value = viewModel.newComment.comment,
-            onValueChange = viewModel::updateCommentOfNewComment
+            placeholder = { },
+            value = viewModel.commentState,
+            onValueChange = { newComment -> viewModel.commentState = newComment }
         )
         Spacer(modifier = Modifier.width(4.dp))
         IconButton(
@@ -491,7 +501,8 @@ fun InfoContentScreen(
     commentListBottomSheetScaffoldState: BottomSheetScaffoldState,
     video: VideoModel,
     videoOwnerUser: UserModel,
-    comments: List<CommentModel>
+    comments: List<CommentModel>,
+    loginUser: UserModel
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -534,7 +545,10 @@ fun InfoContentScreen(
                 onClick = onClickTopCommentSection
             )
         } else {
-            NoneTopComment(onClick = onClickTopCommentSection)
+            NoneTopComment(
+                loginUser = loginUser,
+                onClick = onClickTopCommentSection
+            )
         }
     }
 }
@@ -697,11 +711,13 @@ fun ActionButtons(video: VideoModel) {
 @Preview(backgroundColor = 0xFFFFFFFF, showBackground = true)
 @Composable
 fun InfoContentScreenPreview() {
+    val loginUser = UserWithVideoWithLinkRepository.dummyUser(0)
     InfoContentScreen(
         commentListBottomSheetScaffoldState = rememberBottomSheetScaffoldState(),
         video = UserWithVideoWithLinkRepository.dummyVideo(0),
         videoOwnerUser = UserWithVideoWithLinkRepository.dummyUser(0),
-        comments = CommentRepository.createDummyComments(0)
+        comments = CommentRepository.createDummyComments(0),
+        loginUser = loginUser
     )
 }
 
@@ -750,6 +766,7 @@ fun TopCommentPreview() {
 
 @Composable
 fun NoneTopComment(
+    loginUser: UserModel,
     onClick: () -> Unit = {}
 ) {
     Column(
@@ -765,7 +782,7 @@ fun NoneTopComment(
         Text(text = "コメント")
         Spacer(modifier = Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            UserIconSmall(userImageRes = R.drawable.shell)
+            UserIconSmall(userImageRes = loginUser.iconRes)
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 modifier = Modifier
@@ -781,5 +798,6 @@ fun NoneTopComment(
 @Preview
 @Composable
 fun NoneTopCommentPreview() {
-    NoneTopComment()
+    val loginUser = UserWithVideoWithLinkRepository.dummyUser(0)
+    NoneTopComment(loginUser = loginUser)
 }
