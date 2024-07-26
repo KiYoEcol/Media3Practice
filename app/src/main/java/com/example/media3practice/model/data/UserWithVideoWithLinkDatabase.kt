@@ -19,7 +19,7 @@ abstract class UserWithVideoWithLinkDatabase : RoomDatabase() {
                     UserWithVideoWithLinkDatabase::class.java,
                     "users_with_videos_with_links"
                 )
-                    .createFromAsset("users_database")
+                    .createFromAsset("predata_users_with_videos_with_links_database")
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { Instance = it }
