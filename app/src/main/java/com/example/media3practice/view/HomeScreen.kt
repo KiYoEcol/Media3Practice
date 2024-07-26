@@ -106,6 +106,7 @@ fun CommentListModal(videoId: Int) {
     val mainViewModel: MainViewModel = viewModel(factory = MainVIewModelFactory(app, videoId))
     val videoAndOwnerUser by mainViewModel.videoAndOwnerUser.collectAsState(initial = null)
     val comments by mainViewModel.commentsOfVideo.collectAsState(initial = null)
+    val commentCount = comments?.size ?: 0
 
     val commentListBottomSheetState =
         rememberStandardBottomSheetState(initialValue = SheetValue.Hidden, skipHiddenState = false)
@@ -137,15 +138,9 @@ fun CommentListModal(videoId: Int) {
                         .height(1.dp)
                 )
 
-                var commentCount by rememberSaveable { mutableStateOf(0) }
-                LaunchedEffect(Unit) {
-                    commentCount = mainViewModel.commentsOfVideo.first().size
-                }
-
                 if (commentCount > 0) {
-                    val comments by mainViewModel.commentsOfVideo.collectAsState(emptyList())
                     LazyColumn(modifier = Modifier.weight(1f)) {
-                        items(comments) { comment ->
+                        items(comments!!) { comment ->
                             CommentSection(comment)
                         }
                     }
